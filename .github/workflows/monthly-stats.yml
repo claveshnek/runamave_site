@@ -1,0 +1,30 @@
+name: Monthly stats update
+on:
+  schedule:
+    - cron: '17 5 1 * *'     # 1st of every month, 05:17 UTC
+  workflow_dispatch: {}       # also a manual "Run workflow" button
+permissions:
+  contents: write
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: node update_stats.mjs
+      - run: node build_site.mjs
+      - name: Save debug pages if parsing failed
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: debug-html
+          path: debug_*.html
+          if-no-files-found: ignore
+      - name: Commit changes
+        run: |
+          git config user.name  "stats-bot"
+          git config user.email "stats-bot@users.noreply.github.com"
+          rm -f debug_*.html
+          git add stats.json index.html
+          git diff --cached --quiet || git commit -m "Monthly stats update" && git push
