@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>LarunaMave — букмарклеты для сбора данных с PH</title>
+<style>
+  body{background:#0a0a0a;color:#e8e0d0;font-family:system-ui,sans-serif;max-width:760px;margin:40px auto;padding:0 20px;line-height:1.6;}
+  h1{color:#c9a84c;font-size:22px;}
+  h2{color:#c9a84c;font-size:16px;margin-top:36px;}
+  .bm{display:inline-block;background:#c9a84c;color:#0a0a0a;font-weight:700;padding:12px 20px;border-radius:4px;text-decoration:none;margin:10px 0;cursor:grab;}
+  .bm:hover{filter:brightness(1.1);}
+  code{background:#1a1a1a;padding:2px 6px;border-radius:3px;font-size:13px;}
+  ol,ul{padding-left:22px;}
+  .step{background:#141414;border:1px solid #2a2a2a;padding:16px 20px;margin:14px 0;border-radius:6px;}
+</style>
+</head>
+<body>
+<h1>Букмарклеты для сбора данных LarunaMave с PornHub</h1>
+<p>Два скрипта-закладки. Устанавливаются один раз, дальше — клик на нужной странице и paste в чат с Claude.</p>
+
+<h2>1. Установка (один раз)</h2>
+<div class="step">
+  Покажи панель закладок в Chrome: <code>Ctrl+Shift+B</code>.<br>
+  Перетащи обе кнопки ниже на панель закладок мышкой.
+</div>
+
+<h2>2. Copy Video Tags — на странице ОДНОГО видео</h2>
+<p>Открой <code>https://www.pornhub.com/view_video.php?viewkey=...</code>, нажми закладку — теги видео скопируются в буфер обмена.</p>
+<a class="bm" href="javascript:(function(){var vkey=(location.href.match(/viewkey=([a-z0-9]+)/i)||[])[1];if(!vkey){alert('Не похоже на страницу видео (?viewkey= не найден в URL)');return;}var tagsWrap=document.querySelector('.tagsWrapper');var tags=tagsWrap?Array.from(tagsWrap.querySelectorAll('a.isTag span')).map(function(e){return e.textContent.trim();}):[];var catWrap=document.querySelector('.categoriesWrapper');var categories=catWrap?Array.from(catWrap.querySelectorAll('a[data-label=\'category\']')).map(function(e){return e.textContent.trim();}):[];var out=JSON.stringify({vkey:vkey,tags:tags,categories:categories});function done(){alert('Скопировано ('+tags.length+' тегов). Вставь в чат с Claude.');}navigator.clipboard.writeText(out).then(done).catch(function(){window.prompt('Скопируй вручную (Ctrl+C) и вставь в чат:',out);});})();">📋 Copy Video Tags</a>
+
+<h2>3. Copy Video List — на странице СПИСКА видео</h2>
+<p>Открой <code>https://www.pornhub.com/pornstar/larunamave/videos/upload?o=mr</code> (последние) или <code>?o=mv</code> (по просмотрам), нажми закладку — список видео скопируется в буфер обмена.</p>
+<a class="bm" href="javascript:(function(){var items=Array.from(document.querySelectorAll('li.pcVideoListItem')).filter(function(li){return li.querySelector('a[href=\'/pornstar/larunamave\']');});var out=items.map(function(li){var vkey=li.getAttribute('data-video-vkey');var titleEl=li.querySelector('a.thumbnailTitle')||li.querySelector('a[title]');var title=titleEl?(titleEl.getAttribute('title')||titleEl.textContent.trim()):'';var dur=li.querySelector('.duration');var views=li.querySelector('.views var');var added=li.querySelector('.added');var img=li.querySelector('img[data-mediumthumb]')||li.querySelector('img[data-image]');return{vkey:vkey,title:title,duration:dur?dur.textContent.trim():null,views:views?views.textContent.trim():null,added_relative:added?added.textContent.trim():null,thumbnail:img?(img.getAttribute('data-mediumthumb')||img.getAttribute('data-image')):null};});var json=JSON.stringify(out);function done(){alert('Скопировано '+out.length+' видео. Вставь в чат с Claude.');}navigator.clipboard.writeText(json).then(done).catch(function(){window.prompt('Скопируй вручную (Ctrl+C) и вставь в чат:',json);});})();">📋 Copy Video List</a>
+
+<h2>Как часто жать</h2>
+<ul>
+  <li><b>Вышло новое видео:</b> открой его страницу → Copy Video Tags → вставь мне. Я добавлю его на сайт.</li>
+  <li><b>Раз в месяц (топ-20):</b> открой <code>?o=mv</code> → Copy Video List → вставь мне.</li>
+  <li><b>Раз в день/по желанию (последние):</b> открой <code>?o=mr</code> → Copy Video List → вставь мне.</li>
+</ul>
+<p style="color:#8a8070;font-size:13px;margin-top:30px;">Скрипты работают только в твоём браузере на странице, которую ты сам открыл — ничего никуда само не ходит и не отправляется, кроме твоего собственного paste в чат.</p>
+</body>
+</html>

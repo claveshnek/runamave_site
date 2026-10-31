@@ -3,12 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "scrape": "node scrape_ph.mjs",
     "build:site": "node build_site.mjs",
     "build:pages": "node generate_video_pages.mjs",
     "build": "npm run build:site && npm run build:pages"
-  },
-  "devDependencies": {
-    "playwright": "^1.48.0"
   }
 }
