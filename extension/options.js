@@ -24,6 +24,10 @@ function readForm() {
 
 $('save').addEventListener('click', async () => {
   const config = readForm();
+  if (!config.owner || !config.repo || !config.pat) {
+    $('status').innerHTML = '<span class="err">Заполни owner, репозиторий и токен перед сохранением.</span>';
+    return;
+  }
   await chrome.storage.local.set({ config });
   chrome.runtime.sendMessage({ type: 'reschedule', intervalMinutes: config.intervalMinutes });
   $('status').innerHTML = '<span class="ok">Сохранено.</span>';
@@ -33,6 +37,10 @@ $('test').addEventListener('click', async () => {
   $('status').textContent = 'Проверка...';
   try {
     const cfg = readForm();
+    if (!cfg.owner || !cfg.repo || !cfg.pat) {
+      $('status').innerHTML = '<span class="err">Заполни owner, репозиторий и токен — одно из полей пустое.</span>';
+      return;
+    }
     const repo = await ghCheckAuth(cfg);
     $('status').innerHTML = `<span class="ok">OK — доступ к ${repo.full_name} есть.</span>`;
   } catch (e) {
