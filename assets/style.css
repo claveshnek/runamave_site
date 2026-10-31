@@ -17,7 +17,7 @@ a{color:inherit;}
 .topnav{display:flex;align-items:center;gap:28px;padding:28px 32px;max-width:1120px;margin:0 auto;}
 .topnav .tn-logo{font-family:'Playfair Display',serif;font-size:20px;color:var(--cream);text-decoration:none;letter-spacing:.5px;}
 .topnav .tn-logo em{font-style:italic;color:var(--gold);}
-.topnav a.tn-link{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);text-decoration:none;border-bottom:1px solid transparent;padding-bottom:2px;transition:all .25s;}
+.topnav a.tn-link{font-family:'DM Mono',monospace;font-size:14px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--text);text-decoration:none;border-bottom:2px solid transparent;padding-bottom:3px;transition:all .25s;}
 .topnav a.tn-link.active,.topnav a.tn-link:hover{color:var(--gold);border-color:var(--gold);}
 .topnav .tn-spacer{flex:1;}
 

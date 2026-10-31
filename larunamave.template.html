@@ -61,8 +61,9 @@ body::before{content:'';position:fixed;inset:0;background-image:url("data:image/
 .topnav{display:flex;align-items:center;gap:28px;margin-bottom:28px;}
 .topnav .tn-logo{font-family:'Playfair Display',serif;font-size:18px;color:var(--cream);text-decoration:none;letter-spacing:.5px;}
 .topnav .tn-logo em{font-style:italic;color:var(--gold);}
-.topnav a.tn-link{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);text-decoration:none;border-bottom:1px solid transparent;padding-bottom:2px;transition:all .25s;}
+.topnav a.tn-link{font-family:'DM Mono',monospace;font-size:14px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--text);text-decoration:none;border-bottom:2px solid transparent;padding-bottom:3px;transition:all .25s;}
 .topnav a.tn-link:hover{color:var(--gold);border-color:var(--gold);}
+.topnav a.tn-link.active{color:var(--gold);border-color:var(--gold);}
 .latest-wrap{margin-bottom:28px;animation:fiu .8s ease .45s both;}
 .latest-cta{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;max-width:560px;min-height:60px;background:var(--gold);color:var(--dark);text-decoration:none;font-family:'DM Mono',monospace;font-size:12px;letter-spacing:1.5px;text-transform:uppercase;font-weight:600;padding:14px 20px;box-shadow:0 4px 18px rgba(0,0,0,.35);transition:filter .2s,transform .2s;}
 .latest-cta:hover{filter:brightness(1.08);transform:translateY(-2px);}
