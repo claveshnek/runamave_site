@@ -1,0 +1,43 @@
+import { ghCheckAuth } from './github.js';
+
+const $ = (id) => document.getElementById(id);
+
+async function load() {
+  const { config } = await chrome.storage.local.get('config');
+  if (!config) return;
+  $('owner').value = config.owner || '';
+  $('repo').value = config.repo || '';
+  $('branch').value = config.branch || 'main';
+  $('pat').value = config.pat || '';
+  $('interval').value = config.intervalMinutes ? config.intervalMinutes / 60 : 24;
+}
+
+function readForm() {
+  return {
+    owner: $('owner').value.trim(),
+    repo: $('repo').value.trim(),
+    branch: $('branch').value.trim() || 'main',
+    pat: $('pat').value.trim(),
+    intervalMinutes: Math.max(60, Math.round(parseFloat($('interval').value || '24') * 60)),
+  };
+}
+
+$('save').addEventListener('click', async () => {
+  const config = readForm();
+  await chrome.storage.local.set({ config });
+  chrome.runtime.sendMessage({ type: 'reschedule', intervalMinutes: config.intervalMinutes });
+  $('status').innerHTML = '<span class="ok">Сохранено.</span>';
+});
+
+$('test').addEventListener('click', async () => {
+  $('status').textContent = 'Проверка...';
+  try {
+    const cfg = readForm();
+    const repo = await ghCheckAuth(cfg);
+    $('status').innerHTML = `<span class="ok">OK — доступ к ${repo.full_name} есть.</span>`;
+  } catch (e) {
+    $('status').innerHTML = `<span class="err">${e.message}</span>`;
+  }
+});
+
+load();

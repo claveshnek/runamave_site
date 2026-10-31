@@ -1,0 +1,30 @@
+name: Rebuild on data change
+# Triggered when the Chrome extension (or a manual edit) pushes new videos.json /
+# tags_overrides.json. Never touches PornHub — just regenerates HTML from data
+# already in the repo, so there's nothing here for PH to block.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'videos.json'
+      - 'tags_overrides.json'
+      - 'stats.json'
+      - 'larunamave.template.html'
+  workflow_dispatch: {}
+permissions:
+  contents: write
+jobs:
+  rebuild:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: node build_site.mjs
+      - run: node generate_video_pages.mjs
+      - name: Commit changes
+        run: |
+          git config user.name  "rebuild-bot"
+          git config user.email "rebuild-bot@users.noreply.github.com"
+          git add index.html videos/ sitemap.xml robots.txt
+          git diff --cached --quiet || (git commit -m "Rebuild from updated data" && git push)
