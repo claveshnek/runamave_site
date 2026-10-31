@@ -1,44 +1,23 @@
-// Generates /blog/[slug].html + /blog/index.html — informational content per
-// TASK_SPEC.md Блок 3 (E-E-A-T bio post, top-videos roundup, platform comparison).
+// Generates /blog/[slug].html + /blog/index.html.
+// Two kinds of posts:
+//  1. Programmatic (top-videos, platform-comparison) — built from live
+//     videos.json/stats.json so the numbers stay current automatically.
+//  2. Author-written — any `.md` file dropped into blog-posts/ (frontmatter +
+//     markdown body). Add one straight on github.com ("Add file" button) and
+//     the rebuild-on-data-change.yml workflow publishes it automatically —
+//     no code, no local setup needed. See blog-posts/README.md.
 // Run: node generate_blog.mjs
 import fs from 'node:fs';
 import path from 'node:path';
-import { SITE, escHtml, nav, footer, vcard, pageHead } from './lib/page_parts.mjs';
+import { SITE, escHtml, nav, footer, pageHead } from './lib/page_parts.mjs';
+import { mdToHtml, parseFrontmatter } from './lib/markdown.mjs';
 
 const videos = JSON.parse(fs.readFileSync('videos.json', 'utf8'));
 const stats = JSON.parse(fs.readFileSync('stats.json', 'utf8'));
-const published = new Map();
-for (const v of [...videos.top20_by_views, ...videos.latest]) {
-  if (!published.has(v.vkey)) published.set(v.vkey, v);
-}
-const allVideos = [...published.values()];
-
 const fmt = (n) => n >= 1e6 ? Math.floor(n / 1e6) + 'M' : n >= 1e3 ? Math.floor(n / 1e3) + 'K' : String(n);
-
 const topTen = videos.top20_by_views.slice(0, 10);
 
-const POSTS = [
-  {
-    slug: 'about-laruna-mave-amateur-to-900m-views',
-    title: 'About Laruna Mave — From Amateur to 900M+ Views',
-    date: '2026-10-15',
-    excerpt: 'How an independent creator of Slavic descent built a 900M+ view, 625K+ subscriber following across PornHub, XVideos and XHamster — in her own words.',
-    bodyHtml: `
-<p>Laruna Mave — also known by her channel name <strong>myschoollife</strong> — is an independent amateur content creator of Slavic descent, known for her red hair, tattoos and a style that stays deliberately unpolished. Across <a href="https://www.pornhub.com/pornstar/larunamave" target="_blank" rel="noopener">PornHub</a>, <a href="https://www.xvideos.com/channels/myschoollife#_tabVideos" target="_blank" rel="noopener">XVideos</a> and <a href="https://xhamster.com/users/larunamave" target="_blank" rel="noopener">XHamster</a> combined, her catalog has crossed ${fmt(stats.total.views)}+ views and ${fmt(stats.total.subs)}+ subscribers.</p>
-
-<p>She has always wanted to be on camera. The amateur route specifically came later, after a friend pointed out how much the format was trending — real settings, real reactions, none of the studio gloss. That framing stuck: Laruna has said more than once that she films for herself first, not for popularity, which is part of why her catalog leans so heavily on home-shot, roleplay-style scenes rather than anything scripted by a studio.</p>
-
-<p>Off camera, her interests are a pretty normal mix for someone her age: RPG video games, motorcycles, space, and dogs. She's 173 cm, 54 kg, with measurements of 94-59-89 — details she's shared openly rather than left to guesswork, the same way she treats most of her public profile.</p>
-
-<h2>What her catalog actually looks like</h2>
-<p>The throughline across her videos is the "stepsister" / family-roleplay format — see the <a href="/categories/amateur-stepsister.html">amateur stepsister</a> and <a href="/categories/stepmom-taboo.html">stepmom &amp; taboo roleplay</a> categories for the bulk of it — alongside a consistent run of <a href="/categories/amateur-threesome.html">amateur threesome</a> scenes and a well-known <a href="/categories/trans-amateur.html">trans-themed</a> series that regularly ranks among her most-viewed uploads.</p>
-
-<p>New videos go up on a rolling basis; the <a href="/videos/">Videos</a> page always shows her latest upload front and center, plus the all-time most-viewed scenes from across her career.</p>
-
-<h2>Where to find her</h2>
-<p>PornHub is her primary channel, with XVideos and XHamster mirroring most of the same catalog. She also posts on <a href="https://www.instagram.com/larunamave/" target="_blank" rel="noopener">Instagram</a> and keeps a full link list on <a href="https://linktr.ee/LarunaMave" target="_blank" rel="noopener">LinkTree</a>.</p>
-`,
-  },
+const PROGRAMMATIC_POSTS = [
   {
     slug: 'top-videos-by-laruna-mave',
     title: `Top ${topTen.length} Most Popular Videos by Laruna Mave`,
@@ -47,7 +26,7 @@ const POSTS = [
     bodyHtml: `
 <p>Laruna Mave has uploaded dozens of videos across her channels, but a handful consistently sit at the top by view count. Here are her ${topTen.length} most-watched, ranked, with what makes each one stand out.</p>
 <ol>
-${topTen.map((v, i) => `  <li><a href="/videos/${v.slug}.html"><strong>${escHtml(v.title)}</strong></a> — ${v.views || 'N/A'} views, ${v.duration || 'N/A'}. ${v.tags.slice(0, 3).map((t) => '#' + t.replace(/\s+/g, '')).join(' ')}</li>`).join('\n')}
+${topTen.map((v) => `  <li><a href="/videos/${v.slug}.html"><strong>${escHtml(v.title)}</strong></a> — ${v.views || 'N/A'} views, ${v.duration || 'N/A'}. ${v.tags.slice(0, 3).map((t) => '#' + t.replace(/\s+/g, '')).join(' ')}</li>`).join('\n')}
 </ol>
 <p>Views shift over time — the full, always-current ranking lives on the <a href="/videos/">Videos</a> page, sorted by views and by upload date. If you're after a specific theme rather than a ranking, the <a href="/categories/">Categories</a> page breaks her catalog down by stepsister, threesome, trans, anal/creampie and taboo-roleplay content.</p>
 <p>For the latest upload specifically — not just the all-time most-viewed — the <a href="/">homepage</a> always links straight to her newest video on PornHub.</p>
@@ -76,12 +55,38 @@ ${topTen.map((v, i) => `  <li><a href="/videos/${v.slug}.html"><strong>${escHtml
   },
 ];
 
+function loadMarkdownPosts() {
+  const dir = 'blog-posts';
+  if (!fs.existsSync(dir)) return [];
+  return fs.readdirSync(dir)
+    .filter((f) => f.endsWith('.md'))
+    .map((f) => {
+      const raw = fs.readFileSync(path.join(dir, f), 'utf8');
+      const { meta, body } = parseFrontmatter(raw);
+      if (!meta.title || !meta.date) {
+        console.warn(`SKIP blog-posts/${f}: missing required "title" or "date" in frontmatter.`);
+        return null;
+      }
+      const slug = meta.slug || f.replace(/\.md$/, '');
+      return {
+        slug,
+        title: meta.title,
+        date: meta.date,
+        excerpt: meta.excerpt || '',
+        bodyHtml: mdToHtml(body),
+      };
+    })
+    .filter(Boolean);
+}
+
+const POSTS = [...PROGRAMMATIC_POSTS, ...loadMarkdownPosts()].sort((a, b) => a.date.localeCompare(b.date));
+
 function postPage(post) {
   const canonical = `${SITE}/blog/${post.slug}.html`;
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
-${pageHead(`${post.title} - Laruna Mave`, post.excerpt, canonical)}
+${pageHead(`${post.title} - Laruna Mave`, post.excerpt || post.title, canonical)}
 <script type="application/ld+json">${JSON.stringify({
     '@context': 'https://schema.org',
     '@type': 'BlogPosting',
@@ -138,4 +143,4 @@ fs.mkdirSync('blog', { recursive: true });
 for (const post of POSTS) fs.writeFileSync(path.join('blog', `${post.slug}.html`), postPage(post));
 fs.writeFileSync(path.join('blog', 'index.html'), blogIndexPage());
 
-console.log(`Generated ${POSTS.length} blog posts + /blog/index.html`);
+console.log(`Generated ${POSTS.length} blog posts (${PROGRAMMATIC_POSTS.length} programmatic + ${POSTS.length - PROGRAMMATIC_POSTS.length} from blog-posts/*.md) + /blog/index.html`);

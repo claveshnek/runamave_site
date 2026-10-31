@@ -10,6 +10,7 @@ on:
       - 'tags_overrides.json'
       - 'stats.json'
       - 'larunamave.template.html'
+      - 'blog-posts/**'
   workflow_dispatch: {}
 permissions:
   contents: write
