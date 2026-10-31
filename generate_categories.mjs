@@ -103,8 +103,8 @@ ${nav('categories')}
     <p class="sec-eye">Browse</p>
     <h1 class="page-title">Categories</h1>
     <div class="vgrid" style="grid-template-columns:repeat(2,1fr);">
-      ${results.map(({ cat, matches }) => `<a href="/categories/${cat.slug}.html" class="vcard">
-        <div class="thumb"><img src="${matches[0]?.thumbnail || ''}" alt="${escHtml(cat.title)}" loading="lazy"></div>
+      ${results.map(({ cat, matches, cover }) => `<a href="/categories/${cat.slug}.html" class="vcard">
+        <div class="thumb"><img src="${cover?.thumbnail || ''}" alt="${escHtml(cat.title)}" loading="lazy"></div>
         <p class="vc-title">${escHtml(cat.title)}</p>
         <p class="vc-meta">${matches.length} videos</p>
       </a>`).join('\n      ')}
@@ -119,6 +119,14 @@ ${footer()}
 fs.mkdirSync('categories', { recursive: true });
 const results = CATEGORIES.map((cat) => ({ cat, matches: allVideos.filter((v) => v.tags.some((t) => cat.tagRe.test(t))) }))
   .filter(({ matches }) => matches.length > 0);
+
+// Pick a cover thumbnail per category, avoiding reusing the same video's thumbnail
+// across categories (several videos match 2+ categories, e.g. stepsister + stepmom).
+const usedCovers = new Set();
+for (const r of results) {
+  r.cover = r.matches.find((v) => !usedCovers.has(v.vkey)) || r.matches[0];
+  usedCovers.add(r.cover.vkey);
+}
 
 for (const { cat, matches } of results) {
   fs.writeFileSync(path.join('categories', `${cat.slug}.html`), categoryPage(cat, matches));

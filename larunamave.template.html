@@ -58,12 +58,11 @@ body::before{content:'';position:fixed;inset:0;background-image:url("data:image/
 .lang-bar{display:flex;gap:10px;margin-bottom:36px;}
 .lb{background:none;border:1px solid var(--muted);color:var(--muted);padding:4px 10px;font-family:'DM Mono',monospace;font-size:9px;letter-spacing:2px;cursor:pointer;transition:all .25s;}
 .lb:hover,.lb.active{border-color:var(--gold);color:var(--gold);}
-.topnav{display:flex;align-items:center;gap:28px;margin-bottom:28px;}
+.topnav{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:28px;}
 .topnav .tn-logo{font-family:'Playfair Display',serif;font-size:18px;color:var(--cream);text-decoration:none;letter-spacing:.5px;}
 .topnav .tn-logo em{font-style:italic;color:var(--gold);}
-.topnav a.tn-link{font-family:'DM Mono',monospace;font-size:14px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--text);text-decoration:none;border-bottom:2px solid transparent;padding-bottom:3px;transition:all .25s;}
-.topnav a.tn-link:hover{color:var(--gold);border-color:var(--gold);}
-.topnav a.tn-link.active{color:var(--gold);border-color:var(--gold);}
+.topnav a.tn-link{font-family:'DM Mono',monospace;font-size:14px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#FF9000;background:#0d0d0d;text-decoration:none;border:2px solid #FF9000;border-radius:5px;padding:9px 16px;transition:all .2s;}
+.topnav a.tn-link:hover,.topnav a.tn-link.active{color:#0d0d0d;background:#FF9000;}
 .latest-wrap{margin-bottom:28px;animation:fiu .8s ease .45s both;}
 .latest-cta{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;max-width:560px;min-height:60px;background:var(--gold);color:var(--dark);text-decoration:none;font-family:'DM Mono',monospace;font-size:12px;letter-spacing:1.5px;text-transform:uppercase;font-weight:600;padding:14px 20px;box-shadow:0 4px 18px rgba(0,0,0,.35);transition:filter .2s,transform .2s;}
 .latest-cta:hover{filter:brightness(1.08);transform:translateY(-2px);}
