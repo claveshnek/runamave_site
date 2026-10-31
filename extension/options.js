@@ -5,11 +5,13 @@ const $ = (id) => document.getElementById(id);
 async function load() {
   const { config } = await chrome.storage.local.get('config');
   if (!config) return;
-  $('owner').value = config.owner || '';
-  $('repo').value = config.repo || '';
-  $('branch').value = config.branch || 'main';
-  $('pat').value = config.pat || '';
-  $('interval').value = config.intervalMinutes ? config.intervalMinutes / 60 : 24;
+  // Only overwrite the HTML defaults when storage actually has something — an
+  // earlier save with blank fields must not blank out the pre-filled values.
+  if (config.owner) $('owner').value = config.owner;
+  if (config.repo) $('repo').value = config.repo;
+  if (config.branch) $('branch').value = config.branch;
+  if (config.pat) $('pat').value = config.pat;
+  if (config.intervalMinutes) $('interval').value = config.intervalMinutes / 60;
 }
 
 function readForm() {
