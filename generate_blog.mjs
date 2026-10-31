@@ -106,6 +106,13 @@ ${nav('blog')}
     <h1 class="page-title">${escHtml(post.title)}</h1>
     <p style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);margin-bottom:24px;">${post.date}</p>
     <div class="vdesc" style="max-width:none;">${post.bodyHtml}</div>
+
+    <div style="background:var(--dark2);padding:28px 24px;margin:36px 0;text-align:center;">
+      <p style="font-family:'DM Mono',monospace;font-size:10px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-bottom:14px;">Watch Now</p>
+      <a href="${videos.latest[0].url}" target="_blank" rel="noopener" class="btn-p" style="display:inline-block;font-size:13px;padding:16px 32px;">▶ Watch My Latest Video on PornHub</a>
+      <p style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);margin-top:12px;">${escHtml(videos.latest[0].title)} · ${videos.latest[0].duration || ''}</p>
+    </div>
+
     <p style="margin-top:36px;"><a href="/blog/" class="btn-s">← All Posts</a></p>
   </section>
 </div>
