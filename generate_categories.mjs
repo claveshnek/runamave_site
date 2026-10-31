@@ -72,6 +72,7 @@ ${pageHead(cat.seoTitle, desc, canonical, matches[0]?.thumbnail)}
   })}</script>
 </head>
 <body>
+<script src="/assets/age-gate.js"></script>
 ${nav('categories')}
 <p class="crumbs"><a href="/">Home</a> / <a href="/categories/">Categories</a> / ${escHtml(cat.title)}</p>
 <div class="wrap">
@@ -97,6 +98,7 @@ function categoriesIndexPage(results) {
 ${pageHead('Categories - Laruna Mave', desc, canonical)}
 </head>
 <body>
+<script src="/assets/age-gate.js"></script>
 ${nav('categories')}
 <div class="wrap">
   <section class="block" style="padding-top:0;">

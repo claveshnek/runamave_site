@@ -199,6 +199,7 @@ ${pageHead(title, desc, canonical, v.thumbnail)}
 <script type="application/ld+json">${JSON.stringify(schema)}</script>
 </head>
 <body>
+<script src="/assets/age-gate.js"></script>
 ${nav('videos')}
 <p class="crumbs"><a href="/">Home</a> / <a href="/videos/">Videos</a> / ${escHtml(v.title)}</p>
 <div class="wrap">
@@ -259,6 +260,7 @@ function catalogPage() {
 ${pageHead(title, desc, canonical, heroVideo.thumbnail)}
 </head>
 <body>
+<script src="/assets/age-gate.js"></script>
 ${nav('videos')}
 <div class="wrap">
   <section class="block" style="padding-top:0;">
