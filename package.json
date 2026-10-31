@@ -5,6 +5,9 @@
   "scripts": {
     "build:site": "node build_site.mjs",
     "build:pages": "node generate_video_pages.mjs",
-    "build": "npm run build:site && npm run build:pages"
+    "build:categories": "node generate_categories.mjs",
+    "build:blog": "node generate_blog.mjs",
+    "build:sitemap": "node build_sitemap.mjs",
+    "build": "npm run build:site && npm run build:pages && npm run build:categories && npm run build:blog && npm run build:sitemap"
   }
 }

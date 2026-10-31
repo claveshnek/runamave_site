@@ -3,8 +3,8 @@
 // Run: node generate_video_pages.mjs
 import fs from 'node:fs';
 import path from 'node:path';
+import { SITE, escHtml, nav, footer, vcard, pageHead } from './lib/page_parts.mjs';
 
-const SITE = 'https://larunamave.com';
 const videos = JSON.parse(fs.readFileSync('videos.json', 'utf8'));
 
 // --- merge latest + top20 into the published set, de-duped by vkey ---
@@ -147,50 +147,11 @@ function seoTitle(v) {
   return cap(t);
 }
 
-function escHtml(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
-
 function relatedVideos(v, n = 4) {
   const pool = list.filter((x) => x.vkey !== v.vkey);
   const sameTag = pool.filter((x) => x.tags.some((t) => v.tags.includes(t)));
   const rest = pool.filter((x) => !sameTag.includes(x));
   return [...sameTag, ...rest].slice(0, n);
-}
-
-function nav(active) {
-  const link = (href, label, key) =>
-    `<a href="${href}" class="tn-link${active === key ? ' active' : ''}">${label}</a>`;
-  return `<div class="topnav">
-    <a href="${SITE}/" class="tn-logo">Laruna<em>Mave</em></a>
-    <div class="tn-spacer"></div>
-    ${link(SITE + '/videos/', 'Videos', 'videos')}
-    ${link(SITE + '/#about', 'About', 'about')}
-  </div>`;
-}
-
-function footer() {
-  return `<footer>
-    <div class="fn">Laruna Mave</div>
-    <div class="fl">
-      <a href="/videos/">Videos</a>
-      <a href="https://www.pornhub.com/pornstar/larunamave" target="_blank" rel="noopener">PornHub</a>
-      <a href="https://www.xvideos.com/channels/myschoollife#_tabVideos" target="_blank" rel="noopener">XVideos</a>
-      <a href="https://xhamster.com/users/larunamave" target="_blank" rel="noopener">XHamster</a>
-      <a href="https://www.instagram.com/larunamave/" target="_blank" rel="noopener">Instagram</a>
-      <a href="https://linktr.ee/LarunaMave" target="_blank" rel="noopener">LinkTree</a>
-    </div>
-    <p class="fc">© 2025 Laruna Mave · larunamave.com · All rights reserved</p>
-    <p class="fc">18+ — all persons depicted are consenting adults</p>
-  </footer>`;
-}
-
-function vcard(v) {
-  return `<a href="/videos/${v.slug}.html" class="vcard">
-    <div class="thumb"><img src="${v.thumbnail || ''}" alt="${escHtml(v.title)}" loading="lazy">${v.duration ? `<span class="dur">${v.duration}</span>` : ''}</div>
-    <p class="vc-title">${escHtml(v.title)}</p>
-    <p class="vc-meta">${v.views || ''} views</p>
-  </a>`;
 }
 
 function videoObjectSchema(v) {
@@ -222,22 +183,6 @@ function breadcrumbSchema(v) {
       { '@type': 'ListItem', position: 3, name: v.title, item: `${SITE}/videos/${v.slug}.html` },
     ],
   };
-}
-
-function pageHead(title, description, canonical, ogImage) {
-  return `<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>${escHtml(title)}</title>
-<meta name="description" content="${escHtml(description)}">
-<meta name="robots" content="index, follow">
-<link rel="canonical" href="${canonical}">
-<meta property="og:title" content="${escHtml(title)}">
-<meta property="og:description" content="${escHtml(description)}">
-<meta property="og:url" content="${canonical}">
-${ogImage ? `<meta property="og:image" content="${ogImage}">` : ''}
-<meta name="twitter:card" content="summary_large_image">
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;1,400&family=Cormorant+Garamond:wght@300;400;500&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/assets/style.css">`;
 }
 
 function videoPage(v) {
@@ -356,24 +301,4 @@ for (const v of list) {
 }
 fs.writeFileSync(path.join('videos', 'index.html'), catalogPage());
 
-// --- sitemap.xml ---
-const urls = [
-  { loc: `${SITE}/`, priority: '1.0' },
-  { loc: `${SITE}/videos/`, priority: '0.9' },
-  ...list.map((v) => ({ loc: `${SITE}/videos/${v.slug}.html`, priority: '0.7', lastmod: v.upload_date })),
-];
-const sitemap = `<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-${urls.map((u) => `  <url>
-    <loc>${u.loc}</loc>
-    ${u.lastmod ? `<lastmod>${u.lastmod}</lastmod>` : ''}
-    <priority>${u.priority}</priority>
-  </url>`).join('\n')}
-</urlset>
-`;
-fs.writeFileSync('sitemap.xml', sitemap);
-
-// --- robots.txt ---
-fs.writeFileSync('robots.txt', `User-agent: *\nAllow: /\nSitemap: ${SITE}/sitemap.xml\n`);
-
-console.log(`Generated ${list.length} video pages + /videos/index.html + sitemap.xml + robots.txt`);
+console.log(`Generated ${list.length} video pages + /videos/index.html`);

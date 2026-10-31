@@ -20,11 +20,10 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: 20 }
-      - run: node build_site.mjs
-      - run: node generate_video_pages.mjs
+      - run: npm run build
       - name: Commit changes
         run: |
           git config user.name  "rebuild-bot"
           git config user.email "rebuild-bot@users.noreply.github.com"
-          git add index.html videos/ sitemap.xml robots.txt
+          git add index.html videos/ categories/ blog/ sitemap.xml robots.txt
           git diff --cached --quiet || (git commit -m "Rebuild from updated data" && git push)
