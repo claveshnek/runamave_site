@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>LarunaMave — новый пост</title>
+<style>
+  body{background:#0a0a0a;color:#e8e0d0;font-family:system-ui,sans-serif;max-width:640px;margin:30px auto;padding:0 16px;}
+  h1{color:#c9a84c;font-size:18px;}
+  label{display:block;margin-top:16px;font-size:13px;color:#a89878;}
+  input,textarea{width:100%;padding:8px;margin-top:4px;background:#1a1a1a;border:1px solid #333;color:#e8e0d0;border-radius:4px;box-sizing:border-box;font-family:inherit;}
+  textarea{resize:vertical;}
+  #excerpt{height:50px;}
+  #body{height:260px;font-family:'DM Mono',monospace;font-size:13px;}
+  button{margin-top:10px;background:#c9a84c;color:#0a0a0a;border:none;padding:10px 18px;border-radius:4px;font-weight:700;cursor:pointer;}
+  button.secondary{background:#333;color:#e8e0d0;}
+  button:disabled{opacity:.5;cursor:default;}
+  #status{margin-top:14px;font-size:13px;white-space:pre-wrap;}
+  .ok{color:#6fcf6f;} .err{color:#e06666;} .muted{color:#8a8070;}
+  .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+  .hint{font-size:11px;color:#8a8070;margin-top:4px;}
+</style>
+</head>
+<body>
+<h1>Новый пост в блог</h1>
+
+<label>Заголовок
+  <input id="title" placeholder="Название поста">
+</label>
+<label>Дата
+  <input id="date" type="date">
+</label>
+<label>Краткое описание (для превью и Google)
+  <textarea id="excerpt" placeholder="Одно-два предложения"></textarea>
+</label>
+<label>Текст (markdown: **жирный**, *курсив*, ## заголовок, [текст](ссылка))
+  <textarea id="body" placeholder="Текст поста..."></textarea>
+</label>
+
+<div class="row">
+  <label style="margin:0;flex:1;">Добавить фото
+    <input id="photo" type="file" accept="image/*">
+  </label>
+  <button id="uploadPhoto" class="secondary" type="button">Загрузить и вставить</button>
+</div>
+<div class="hint">Фото вставится в текст в то место, где стоит курсор.</div>
+
+<div class="row">
+  <button id="publish">Опубликовать</button>
+  <span id="status"></span>
+</div>
+
+<script type="module" src="write-post.js"></script>
+</body>
+</html>

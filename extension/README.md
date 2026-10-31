@@ -32,6 +32,15 @@ PornHub — only runs while this Chrome profile is open.
 
 4. Click **Проверить сейчас** once to run a first check immediately.
 
+## Writing a blog post from the extension
+
+Click the extension icon → **✎ Новый пост в блог**. Fill in title, date,
+excerpt and body (plain text / light Markdown), optionally upload a photo
+(inserted at the cursor), then **Опубликовать**. It commits a new
+`blog-posts/<slug>.md` (and any uploaded image under `blog-posts/images/`)
+straight to GitHub — same mechanism as the video-watching feature, same
+token. `rebuild-on-data-change.yml` publishes it automatically.
+
 ## What it does each run
 
 - Fetches the recent-videos list (daily) and, once a month, the most-viewed list.
