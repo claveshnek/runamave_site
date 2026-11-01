@@ -1,15 +1,21 @@
 // LarunaMave Video Watcher — background service worker.
 // Manual trigger only (popup "Проверить сейчас" button) — no scheduled/automatic
-// requests. PH appears to rate-limit or flag repeated automated requests (it started
-// redirecting list-page fetches to rt.pornhub.com, which blocks on CORS) even from a
-// real browser session, so this intentionally does NOT run on a timer anymore —
-// only when the user themselves clicks the button, which keeps the request pattern
-// as "a person checking occasionally" rather than "a bot polling on a fixed schedule".
-// When it does run, it re-reads the two PH list pages the user already browses, using
-// the user's OWN logged-in session, diffs against what's published, and pushes any
-// changes to videos.json / tags_overrides.json via the GitHub Contents API. A separate
-// GitHub Actions workflow (rebuild-on-data-change.yml) picks up that push and
-// regenerates the HTML — PH is never touched from CI.
+// requests, so this is unambiguously "a person checking occasionally", not a bot
+// polling on a timer.
+//
+// PH redirects some requests to rt.pornhub.com (possibly account-region-related,
+// possibly something else — doesn't matter which), and that target serves no CORS
+// headers, so a background fetch() to it fails outright. A real browser tab
+// navigating there isn't subject to CORS at all (that's a fetch/XHR-only rule), so
+// every PH page read here opens an actual (background, non-stealing-focus) tab and
+// reads its rendered HTML via chrome.scripting — same as a person opening the link
+// and the page just loading, not a network trick.
+//
+// When run, it re-reads the two PH list pages the user already browses, using the
+// user's OWN logged-in session, diffs against what's published, and pushes any
+// changes to videos.json / tags_overrides.json via the GitHub Contents API. A
+// separate GitHub Actions workflow (rebuild-on-data-change.yml) picks up that push
+// and regenerates the HTML — PH is never touched from CI.
 import { parseListPage, parseVideoPage, relativeToIsoDate } from './parse.js';
 import { ghGetJson, ghPutJson, ghGetFile, ghPutFile } from './github.js';
 
@@ -33,10 +39,29 @@ async function setStatus(status) {
   await chrome.storage.local.set({ status, lastRun: new Date().toISOString() });
 }
 
-async function fetchText(url) {
-  const res = await fetch(url, { credentials: 'include' });
-  if (!res.ok) throw new Error(`Fetch ${url} failed: ${res.status}`);
-  return res.text();
+// Opens url in a real (background, non-active) tab, waits for it to finish loading
+// — wherever PH's own redirects send it — and reads back the rendered page's HTML.
+// Not subject to CORS, because this is a navigation, not a fetch/XHR.
+async function fetchViaTab(url, timeoutMs = 25000) {
+  const tab = await chrome.tabs.create({ url, active: false });
+  try {
+    await new Promise((resolve, reject) => {
+      const timer = setTimeout(() => { cleanup(); reject(new Error(`Tab load timeout: ${url}`)); }, timeoutMs);
+      function onUpdated(tabId, changeInfo) {
+        if (tabId === tab.id && changeInfo.status === 'complete') { cleanup(); resolve(); }
+      }
+      function cleanup() { clearTimeout(timer); chrome.tabs.onUpdated.removeListener(onUpdated); }
+      chrome.tabs.onUpdated.addListener(onUpdated);
+    });
+    await new Promise((r) => setTimeout(r, 500)); // let any client-side rendering settle
+    const [{ result }] = await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      func: () => document.documentElement.outerHTML,
+    });
+    return result;
+  } finally {
+    await chrome.tabs.remove(tab.id).catch(() => {});
+  }
 }
 
 function blobToBase64(blob) {
@@ -91,7 +116,7 @@ async function runCheck({ force = false } = {}) {
 
   try {
     const [recentVideos, { json: videosJson, sha: videosSha }, { json: tagsOverrides, sha: tagsSha }] = await Promise.all([
-      fetchText(RECENT_URL).then(parseListPage),
+      fetchViaTab(RECENT_URL).then(parseListPage),
       ghGetJson(cfg, 'videos.json'),
       ghGetJson(cfg, 'tags_overrides.json'),
     ]);
@@ -101,7 +126,7 @@ async function runCheck({ force = false } = {}) {
     const dueForTop20 = force || Date.now() - lastTop20Check > TOP20_REFRESH_DAYS * 86400000;
     let viewedVideos = (videosJson?.top20_by_views || []);
     if (dueForTop20) {
-      viewedVideos = parseListPage(await fetchText(VIEWED_URL));
+      viewedVideos = parseListPage(await fetchViaTab(VIEWED_URL));
       await log(`Fetched most-viewed list (monthly refresh): ${viewedVideos.length} videos.`);
       await chrome.storage.local.set({ lastTop20Check: Date.now() });
     }
@@ -130,7 +155,7 @@ async function runCheck({ force = false } = {}) {
       const v = byKey.get(vkey);
       if (!overrides[vkey]) {
         try {
-          const html = await fetchText(`https://www.pornhub.com/view_video.php?viewkey=${vkey}`);
+          const html = await fetchViaTab(`https://www.pornhub.com/view_video.php?viewkey=${vkey}`);
           const parsed = parseVideoPage(html);
           if (parsed?.tags?.length) {
             overrides[vkey] = parsed.tags;

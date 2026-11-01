@@ -9,14 +9,17 @@ straight to GitHub. A separate workflow (`rebuild-on-data-change.yml`) then
 regenerates the site automatically. No proxy, no spoofing, nothing
 server-side ever talks to PornHub.
 
-**Why manual only:** PH appears to rate-limit or flag repeated automated
-requests — it started redirecting the list-page fetch to `rt.pornhub.com`,
-which has no CORS headers and makes the fetch fail with a CORS error. A
-daily timer made the request pattern look like a bot polling on a fixed
-schedule; a person clicking a button occasionally does not. If a check still
-fails with a CORS error mentioning `rt.pornhub.com`, that's PH's own
-rate-limit kicking in — wait a while before clicking again rather than
-retrying repeatedly.
+**Why manual only:** keeps the request pattern as "a person checking
+occasionally", not a bot polling a fixed schedule — simple and safe
+regardless of what's behind the `rt.pornhub.com` redirect below.
+
+**About the `rt.pornhub.com` redirect:** PH sometimes redirects these pages
+to `rt.pornhub.com` (reportedly account-region-related — doesn't really
+matter why), and that target serves no CORS headers, so a plain background
+`fetch()` to it fails outright. Real browser navigation isn't subject to
+CORS at all, so every PH page read here opens an actual background tab and
+reads the rendered HTML via `chrome.scripting` instead of fetching it —
+same as a person opening the link and the page loading normally.
 
 ## Setup (once)
 
