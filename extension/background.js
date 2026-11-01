@@ -6,7 +6,7 @@
 // Contents API. A separate GitHub Actions workflow (rebuild-on-data-change.yml)
 // picks up that push and regenerates the HTML — PH is never touched from CI.
 import { parseListPage, parseVideoPage, relativeToIsoDate } from './parse.js';
-import { ghGetJson, ghPutJson } from './github.js';
+import { ghGetJson, ghPutJson, ghGetFile, ghPutFile } from './github.js';
 
 const RECENT_URL = 'https://www.pornhub.com/pornstar/larunamave/videos/upload?o=mr';
 const VIEWED_URL = 'https://www.pornhub.com/pornstar/larunamave/videos/upload?o=mv';
@@ -33,6 +33,39 @@ async function fetchText(url) {
   const res = await fetch(url, { credentials: 'include' });
   if (!res.ok) throw new Error(`Fetch ${url} failed: ${res.status}`);
   return res.text();
+}
+
+function blobToBase64(blob) {
+  return blob.arrayBuffer().then((buf) => {
+    const bytes = new Uint8Array(buf);
+    let binary = '';
+    const chunk = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunk) {
+      binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+    }
+    return btoa(binary);
+  });
+}
+
+// PH's own thumbnail CDN links are signed and expire within ~24h (that's what was
+// breaking the thumbnail grids whenever a rebuild didn't happen same-day). Instead
+// of hotlinking PH's URL, fetch the image once while the link is still good and
+// store a permanent copy in the repo — same mechanism as the blog photo upload.
+// Returns our own stable path, or the original URL if the fetch/upload failed.
+async function cacheThumbnail(cfg, vkey, url) {
+  if (!url) return url;
+  const path = `assets/thumbs/${vkey}.jpg`;
+  try {
+    const { sha } = await ghGetFile(cfg, path);
+    if (sha) return `/${path}`; // already cached
+    const res = await fetch(url);
+    if (!res.ok) return url;
+    const base64 = await blobToBase64(await res.blob());
+    await ghPutFile(cfg, path, base64, null, `Cache thumbnail: ${vkey}`);
+    return `/${path}`;
+  } catch (e) {
+    return url; // fall back to the live PH link rather than fail the whole run
+  }
 }
 
 async function notify(title, message) {
@@ -88,21 +121,29 @@ async function runCheck({ force = false } = {}) {
     for (const k of latestKeys) if (!oldLatestKeys.has(k)) newVideoFound = byKey.get(k);
 
     let tagFetches = 0;
+    let thumbsCached = 0;
     for (const vkey of published) {
-      if (overrides[vkey]) continue; // already have real tags
-      try {
-        const html = await fetchText(`https://www.pornhub.com/view_video.php?viewkey=${vkey}`);
-        const parsed = parseVideoPage(html);
-        if (parsed?.tags?.length) {
-          overrides[vkey] = parsed.tags;
-          tagFetches++;
+      const v = byKey.get(vkey);
+      if (!overrides[vkey]) {
+        try {
+          const html = await fetchText(`https://www.pornhub.com/view_video.php?viewkey=${vkey}`);
+          const parsed = parseVideoPage(html);
+          if (parsed?.tags?.length) {
+            overrides[vkey] = parsed.tags;
+            tagFetches++;
+          }
+          await new Promise((r) => setTimeout(r, 800)); // don't hammer, nothing to hide — just polite
+        } catch (e) {
+          await log(`Tag fetch failed for ${vkey}: ${e.message}`);
         }
-        await new Promise((r) => setTimeout(r, 800)); // don't hammer, nothing to hide — just polite
-      } catch (e) {
-        await log(`Tag fetch failed for ${vkey}: ${e.message}`);
+      }
+      if (v && v.thumbnail && !v.thumbnail.startsWith('/assets/thumbs/')) {
+        const cached = await cacheThumbnail(cfg, vkey, v.thumbnail);
+        if (cached !== v.thumbnail) { v.thumbnail = cached; thumbsCached++; }
       }
     }
     if (tagFetches) await log(`Fetched real tags for ${tagFetches} video(s).`);
+    if (thumbsCached) await log(`Cached ${thumbsCached} thumbnail(s) locally (won't expire now).`);
 
     for (const v of byKey.values()) {
       v.upload_date = relativeToIsoDate(v.added_relative, today);

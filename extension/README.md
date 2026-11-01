@@ -47,7 +47,12 @@ token. `rebuild-on-data-change.yml` publishes it automatically.
 - Compares against what's already in `videos.json` on GitHub.
 - For any published video (latest 5 + top 20) missing real tags, fetches its own
   page and pulls them.
-- If anything changed, commits `videos.json` / `tags_overrides.json` to GitHub.
+- For any published video whose thumbnail is still a live PH CDN link, downloads
+  it once and stores a permanent copy at `assets/thumbs/<vkey>.jpg` in the repo —
+  PH's thumbnail links are signed and expire after ~24h, which is what caused
+  thumbnail grids to go blank whenever a rebuild didn't happen the same day.
+- If anything changed, commits `videos.json` / `tags_overrides.json` (and any new
+  thumbnail files) to GitHub.
 - Shows a Chrome notification when a brand-new video is found.
 
 ## Notes
