@@ -1,9 +1,9 @@
 {
   "manifest_version": 3,
   "name": "LarunaMave Video Watcher",
-  "version": "1.1",
-  "description": "Periodically re-checks LarunaMave's PornHub page (in your own logged-in session) for new or updated videos and pushes the data to GitHub.",
-  "permissions": ["alarms", "storage", "notifications"],
+  "version": "1.2",
+  "description": "Re-checks LarunaMave's PornHub page (in your own logged-in session) for new or updated videos and pushes the data to GitHub — manual trigger only, no scheduled background requests.",
+  "permissions": ["storage", "notifications"],
   "host_permissions": [
     "https://www.pornhub.com/*",
     "https://*.phncdn.com/*",

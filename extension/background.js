@@ -1,17 +1,21 @@
 // LarunaMave Video Watcher — background service worker.
-// Periodically (while the user's Chrome is running) re-reads the two PH list pages
-// the user already browses, using the user's OWN real browser session — not a
-// server-side bot. Diffs against what's already published and, if anything changed,
-// pushes updated videos.json / tags_overrides.json straight to GitHub via the
-// Contents API. A separate GitHub Actions workflow (rebuild-on-data-change.yml)
-// picks up that push and regenerates the HTML — PH is never touched from CI.
+// Manual trigger only (popup "Проверить сейчас" button) — no scheduled/automatic
+// requests. PH appears to rate-limit or flag repeated automated requests (it started
+// redirecting list-page fetches to rt.pornhub.com, which blocks on CORS) even from a
+// real browser session, so this intentionally does NOT run on a timer anymore —
+// only when the user themselves clicks the button, which keeps the request pattern
+// as "a person checking occasionally" rather than "a bot polling on a fixed schedule".
+// When it does run, it re-reads the two PH list pages the user already browses, using
+// the user's OWN logged-in session, diffs against what's published, and pushes any
+// changes to videos.json / tags_overrides.json via the GitHub Contents API. A separate
+// GitHub Actions workflow (rebuild-on-data-change.yml) picks up that push and
+// regenerates the HTML — PH is never touched from CI.
 import { parseListPage, parseVideoPage, relativeToIsoDate } from './parse.js';
 import { ghGetJson, ghPutJson, ghGetFile, ghPutFile } from './github.js';
 
 const RECENT_URL = 'https://www.pornhub.com/pornstar/larunamave/videos/upload?o=mr';
 const VIEWED_URL = 'https://www.pornhub.com/pornstar/larunamave/videos/upload?o=mv';
-const TOP20_REFRESH_DAYS = 30; // "раз в месяц" per spec
-const ALARM_NAME = 'larunamave-check';
+const TOP20_REFRESH_DAYS = 30; // only refresh the top-20 list this often, even run-to-run
 
 async function getConfig() {
   const { config } = await chrome.storage.local.get('config');
@@ -185,22 +189,9 @@ async function runCheck({ force = false } = {}) {
   }
 }
 
-chrome.runtime.onInstalled.addListener(async () => {
-  const { intervalMinutes = 1440 } = (await chrome.storage.local.get('config'))?.config || {};
-  chrome.alarms.create(ALARM_NAME, { periodInMinutes: intervalMinutes, delayInMinutes: 1 });
-});
-
-chrome.alarms.onAlarm.addListener((alarm) => {
-  if (alarm.name === ALARM_NAME) runCheck();
-});
-
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg?.type === 'check-now') {
     runCheck({ force: msg.force }).then(() => sendResponse({ ok: true }));
     return true; // keep channel open for async response
-  }
-  if (msg?.type === 'reschedule') {
-    chrome.alarms.create(ALARM_NAME, { periodInMinutes: msg.intervalMinutes, delayInMinutes: 1 });
-    sendResponse({ ok: true });
   }
 });

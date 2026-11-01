@@ -11,7 +11,6 @@ async function load() {
   if (config.repo) $('repo').value = config.repo;
   if (config.branch) $('branch').value = config.branch;
   if (config.pat) $('pat').value = config.pat;
-  if (config.intervalMinutes) $('interval').value = config.intervalMinutes / 60;
 }
 
 function readForm() {
@@ -20,7 +19,6 @@ function readForm() {
     repo: $('repo').value.trim(),
     branch: $('branch').value.trim() || 'main',
     pat: $('pat').value.trim(),
-    intervalMinutes: Math.max(60, Math.round(parseFloat($('interval').value || '24') * 60)),
   };
 }
 
@@ -31,7 +29,6 @@ $('save').addEventListener('click', async () => {
     return;
   }
   await chrome.storage.local.set({ config });
-  chrome.runtime.sendMessage({ type: 'reschedule', intervalMinutes: config.intervalMinutes });
   $('status').innerHTML = '<span class="ok">Сохранено.</span>';
 });
 

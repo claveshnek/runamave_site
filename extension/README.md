@@ -1,12 +1,22 @@
 # LarunaMave Video Watcher — Chrome extension
 
-Runs in your own Chrome, under your own browsing session. On a timer (default
-daily), it reloads the two PornHub pages you already use (`?o=mr` recent,
-`?o=mv` most-viewed — the second one only once a month), finds new/changed
-videos, and pushes updated `videos.json` / `tags_overrides.json` straight to
-GitHub. A separate workflow (`rebuild-on-data-change.yml`) then regenerates the
-site automatically. No proxy, no spoofing, nothing server-side ever talks to
-PornHub — only runs while this Chrome profile is open.
+Runs in your own Chrome, under your own browsing session — **manual trigger
+only, no automatic schedule**. Click "Проверить сейчас" in the popup when you
+want it to check: it reloads the two PornHub pages you already use (`?o=mr`
+recent, `?o=mv` most-viewed — the second one only once a month), finds
+new/changed videos, and pushes updated `videos.json` / `tags_overrides.json`
+straight to GitHub. A separate workflow (`rebuild-on-data-change.yml`) then
+regenerates the site automatically. No proxy, no spoofing, nothing
+server-side ever talks to PornHub.
+
+**Why manual only:** PH appears to rate-limit or flag repeated automated
+requests — it started redirecting the list-page fetch to `rt.pornhub.com`,
+which has no CORS headers and makes the fetch fail with a CORS error. A
+daily timer made the request pattern look like a bot polling on a fixed
+schedule; a person clicking a button occasionally does not. If a check still
+fails with a CORS error mentioning `rt.pornhub.com`, that's PH's own
+rate-limit kicking in — wait a while before clicking again rather than
+retrying repeatedly.
 
 ## Setup (once)
 
@@ -27,10 +37,10 @@ PornHub — only runs while this Chrome profile is open.
    - repo: `runamave_site`
    - branch: `main`
    - token: the one from step 1
-   - interval: how often to check (hours, default 24)
    - **Сохранить**, then **Проверить подключение** to confirm it's wired up right.
 
-4. Click **Проверить сейчас** once to run a first check immediately.
+4. Click **Проверить сейчас** whenever you want to check for new videos —
+   there's no automatic schedule, so this is the only way it runs.
 
 ## Writing a blog post from the extension
 
@@ -43,7 +53,7 @@ token. `rebuild-on-data-change.yml` publishes it automatically.
 
 ## What it does each run
 
-- Fetches the recent-videos list (daily) and, once a month, the most-viewed list.
+- Fetches the recent-videos list and, at most once a month, the most-viewed list.
 - Compares against what's already in `videos.json` on GitHub.
 - For any published video (latest 5 + top 20) missing real tags, fetches its own
   page and pulls them.
@@ -57,7 +67,7 @@ token. `rebuild-on-data-change.yml` publishes it automatically.
 
 ## Notes
 
-- Only runs while Chrome is open on this machine — not 24/7 like a server cron.
+- No automatic/background requests — only runs when you click the button.
 - The token lives only in this browser's local extension storage; it is never
   sent anywhere except `api.github.com`.
 - If PH changes its page markup, parsing may need updating in `parse.js`
