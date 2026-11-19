@@ -39,78 +39,81 @@ async function setStatus(status) {
   await chrome.storage.local.set({ status, lastRun: new Date().toISOString() });
 }
 
-// Opens url in a real (background, non-active) tab, waits for it to finish loading
-// — wherever PH's own redirects send it — and reads back the rendered page's HTML.
-// Not subject to CORS, because this is a navigation, not a fetch/XHR.
-async function fetchViaTab(url, timeoutMs = 25000) {
+// Opens url in a real (background, non-active) tab and waits for it to finish loading
+// — wherever PH's own redirects send it. Returns the tab so the caller can read from
+// it (outerHTML, run a fetch in its context, etc.) and must close it when done.
+async function openTab(url, timeoutMs = 25000) {
   const tab = await chrome.tabs.create({ url, active: false });
+  await new Promise((resolve, reject) => {
+    const timer = setTimeout(() => { cleanup(); reject(new Error(`Tab load timeout: ${url}`)); }, timeoutMs);
+    function onUpdated(tabId, changeInfo) {
+      if (tabId === tab.id && changeInfo.status === 'complete') { cleanup(); resolve(); }
+    }
+    function cleanup() { clearTimeout(timer); chrome.tabs.onUpdated.removeListener(onUpdated); }
+    chrome.tabs.onUpdated.addListener(onUpdated);
+  });
+  await new Promise((r) => setTimeout(r, 500)); // let any client-side rendering settle
+  return tab;
+}
+
+// Reads a loaded tab's rendered HTML. Not subject to CORS, because this is reading
+// a navigation result, not a fetch/XHR.
+async function readTabHtml(tabId) {
+  const [{ result }] = await chrome.scripting.executeScript({
+    target: { tabId },
+    func: () => document.documentElement.outerHTML,
+  });
+  return result;
+}
+
+async function fetchViaTab(url, timeoutMs = 25000) {
+  const tab = await openTab(url, timeoutMs);
   try {
-    await new Promise((resolve, reject) => {
-      const timer = setTimeout(() => { cleanup(); reject(new Error(`Tab load timeout: ${url}`)); }, timeoutMs);
-      function onUpdated(tabId, changeInfo) {
-        if (tabId === tab.id && changeInfo.status === 'complete') { cleanup(); resolve(); }
-      }
-      function cleanup() { clearTimeout(timer); chrome.tabs.onUpdated.removeListener(onUpdated); }
-      chrome.tabs.onUpdated.addListener(onUpdated);
-    });
-    await new Promise((r) => setTimeout(r, 500)); // let any client-side rendering settle
-    const [{ result }] = await chrome.scripting.executeScript({
-      target: { tabId: tab.id },
-      func: () => document.documentElement.outerHTML,
-    });
-    return result;
+    return await readTabHtml(tab.id);
   } finally {
     await chrome.tabs.remove(tab.id).catch(() => {});
   }
 }
 
-function blobToBase64(blob) {
-  return blob.arrayBuffer().then((buf) => {
-    const bytes = new Uint8Array(buf);
-    let binary = '';
-    const chunk = 0x8000;
-    for (let i = 0; i < bytes.length; i += chunk) {
-      binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
-    }
-    return btoa(binary);
+// Fetches imgUrl from INSIDE the given tab's page (chrome.scripting, not a background
+// fetch()). PH's signed thumbnail links appear to reject background fetch() requests
+// with 403 — likely a Referer check, since a background service worker doesn't send
+// one. Running the fetch in an actual loaded pornhub.com page's context sends a real
+// Referer, same as the browser would for any <img> on that page.
+async function fetchImageBase64InTab(tabId, imgUrl) {
+  const [{ result }] = await chrome.scripting.executeScript({
+    target: { tabId },
+    func: async (url) => {
+      const res = await fetch(url);
+      if (!res.ok) return { error: `status ${res.status}` };
+      const buf = await res.arrayBuffer();
+      const bytes = new Uint8Array(buf);
+      let binary = '';
+      const chunk = 0x8000;
+      for (let i = 0; i < bytes.length; i += chunk) binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+      return { base64: btoa(binary) };
+    },
+    args: [imgUrl],
   });
+  if (result.error) throw new Error(result.error);
+  return result.base64;
 }
 
 // PH's own thumbnail CDN links are signed and expire within ~24h (that's what was
 // breaking the thumbnail grids whenever a rebuild didn't happen same-day). Instead
 // of hotlinking PH's URL, fetch the image once while the link is still good and
 // store a permanent copy in the repo — same mechanism as the blog photo upload.
+// Must run inside a loaded pornhub.com tab (fetchImageBase64InTab), not a background
+// fetch() — PH's CDN returns 403 for those, almost certainly a Referer check (a
+// service worker has none; a real page's fetch() carries the page's own Referer).
 // Returns our own stable path, or the original URL if the fetch/upload failed.
-async function cacheThumbnailOnce(cfg, vkey, url) {
+async function cacheThumbnailInTab(cfg, tabId, vkey, url) {
   const path = `assets/thumbs/${vkey}.jpg`;
   const { sha } = await ghGetFile(cfg, path);
   if (sha) return `/${path}`; // already cached
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`PH fetch ${res.status}`);
-  const base64 = await blobToBase64(await res.blob());
+  const base64 = await fetchImageBase64InTab(tabId, url);
   await ghPutFile(cfg, path, base64, null, `Cache thumbnail: ${vkey}`);
   return `/${path}`;
-}
-
-// The first few videos processed each run (the "latest" ones, since they're iterated
-// before the top-20) were silently failing to cache — looked like "only 20 of 25" but
-// was really a one-off timing issue right after the two heavy list-page tab loads, not
-// an actual cap. One retry (after a beat) clears it up without needing to know the
-// exact transient cause.
-async function cacheThumbnail(cfg, vkey, url) {
-  if (!url) return url;
-  for (let attempt = 1; attempt <= 2; attempt++) {
-    try {
-      return await cacheThumbnailOnce(cfg, vkey, url);
-    } catch (e) {
-      if (attempt === 2) {
-        await log(`Thumbnail cache FAILED for ${vkey} after retry: ${e.message}`);
-        return url; // fall back to the live PH link rather than fail the whole run
-      }
-      await new Promise((r) => setTimeout(r, 1500));
-    }
-  }
-  return url;
 }
 
 async function notify(title, message) {
@@ -165,27 +168,39 @@ async function runCheck({ force = false } = {}) {
     const oldLatestKeys = new Set((videosJson?.latest || []).map((v) => v.vkey));
     for (const k of latestKeys) if (!oldLatestKeys.has(k)) newVideoFound = byKey.get(k);
 
+    // One tab per video that still needs its tags and/or thumbnail cached — both read
+    // from the SAME loaded page where needed, since the thumbnail fetch specifically
+    // requires a real page context (see cacheThumbnailInTab).
     let tagFetches = 0;
     let thumbsCached = 0;
     for (const vkey of published) {
       const v = byKey.get(vkey);
-      if (!overrides[vkey]) {
-        try {
-          const html = await fetchViaTab(`https://www.pornhub.com/view_video.php?viewkey=${vkey}`);
+      const needTags = !overrides[vkey];
+      const needThumb = Boolean(v && v.thumbnail && !v.thumbnail.startsWith('/assets/thumbs/'));
+      if (!needTags && !needThumb) continue;
+
+      let tab;
+      try {
+        tab = await openTab(`https://www.pornhub.com/view_video.php?viewkey=${vkey}`);
+        if (needTags) {
+          const html = await readTabHtml(tab.id);
           const parsed = parseVideoPage(html);
-          if (parsed?.tags?.length) {
-            overrides[vkey] = parsed.tags;
-            tagFetches++;
-          }
-          await new Promise((r) => setTimeout(r, 800)); // don't hammer, nothing to hide — just polite
-        } catch (e) {
-          await log(`Tag fetch failed for ${vkey}: ${e.message}`);
+          if (parsed?.tags?.length) { overrides[vkey] = parsed.tags; tagFetches++; }
         }
+        if (needThumb) {
+          try {
+            const cached = await cacheThumbnailInTab(cfg, tab.id, vkey, v.thumbnail);
+            if (cached !== v.thumbnail) { v.thumbnail = cached; thumbsCached++; }
+          } catch (e) {
+            await log(`Thumbnail cache FAILED for ${vkey}: ${e.message}`);
+          }
+        }
+      } catch (e) {
+        await log(`Page fetch failed for ${vkey}: ${e.message}`);
+      } finally {
+        if (tab) await chrome.tabs.remove(tab.id).catch(() => {});
       }
-      if (v && v.thumbnail && !v.thumbnail.startsWith('/assets/thumbs/')) {
-        const cached = await cacheThumbnail(cfg, vkey, v.thumbnail);
-        if (cached !== v.thumbnail) { v.thumbnail = cached; thumbsCached++; }
-      }
+      await new Promise((r) => setTimeout(r, 800)); // don't hammer, nothing to hide — just polite
     }
     if (tagFetches) await log(`Fetched real tags for ${tagFetches} video(s).`);
     if (thumbsCached) await log(`Cached ${thumbsCached} thumbnail(s) locally (won't expire now).`);
