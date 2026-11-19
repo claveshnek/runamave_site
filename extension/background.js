@@ -81,24 +81,36 @@ function blobToBase64(blob) {
 // of hotlinking PH's URL, fetch the image once while the link is still good and
 // store a permanent copy in the repo — same mechanism as the blog photo upload.
 // Returns our own stable path, or the original URL if the fetch/upload failed.
+async function cacheThumbnailOnce(cfg, vkey, url) {
+  const path = `assets/thumbs/${vkey}.jpg`;
+  const { sha } = await ghGetFile(cfg, path);
+  if (sha) return `/${path}`; // already cached
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`PH fetch ${res.status}`);
+  const base64 = await blobToBase64(await res.blob());
+  await ghPutFile(cfg, path, base64, null, `Cache thumbnail: ${vkey}`);
+  return `/${path}`;
+}
+
+// The first few videos processed each run (the "latest" ones, since they're iterated
+// before the top-20) were silently failing to cache — looked like "only 20 of 25" but
+// was really a one-off timing issue right after the two heavy list-page tab loads, not
+// an actual cap. One retry (after a beat) clears it up without needing to know the
+// exact transient cause.
 async function cacheThumbnail(cfg, vkey, url) {
   if (!url) return url;
-  const path = `assets/thumbs/${vkey}.jpg`;
-  try {
-    const { sha } = await ghGetFile(cfg, path);
-    if (sha) return `/${path}`; // already cached
-    const res = await fetch(url);
-    if (!res.ok) {
-      await log(`Thumbnail cache SKIPPED for ${vkey}: PH fetch ${res.status} (link likely expired already)`);
-      return url;
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      return await cacheThumbnailOnce(cfg, vkey, url);
+    } catch (e) {
+      if (attempt === 2) {
+        await log(`Thumbnail cache FAILED for ${vkey} after retry: ${e.message}`);
+        return url; // fall back to the live PH link rather than fail the whole run
+      }
+      await new Promise((r) => setTimeout(r, 1500));
     }
-    const base64 = await blobToBase64(await res.blob());
-    await ghPutFile(cfg, path, base64, null, `Cache thumbnail: ${vkey}`);
-    return `/${path}`;
-  } catch (e) {
-    await log(`Thumbnail cache FAILED for ${vkey}: ${e.message}`);
-    return url; // fall back to the live PH link rather than fail the whole run
   }
+  return url;
 }
 
 async function notify(title, message) {
