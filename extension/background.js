@@ -88,11 +88,15 @@ async function cacheThumbnail(cfg, vkey, url) {
     const { sha } = await ghGetFile(cfg, path);
     if (sha) return `/${path}`; // already cached
     const res = await fetch(url);
-    if (!res.ok) return url;
+    if (!res.ok) {
+      await log(`Thumbnail cache SKIPPED for ${vkey}: PH fetch ${res.status} (link likely expired already)`);
+      return url;
+    }
     const base64 = await blobToBase64(await res.blob());
     await ghPutFile(cfg, path, base64, null, `Cache thumbnail: ${vkey}`);
     return `/${path}`;
   } catch (e) {
+    await log(`Thumbnail cache FAILED for ${vkey}: ${e.message}`);
     return url; // fall back to the live PH link rather than fail the whole run
   }
 }
