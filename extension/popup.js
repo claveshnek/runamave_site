@@ -12,9 +12,10 @@ async function render() {
 
 document.getElementById('checkNow').addEventListener('click', async () => {
   const btn = document.getElementById('checkNow');
+  const force = document.getElementById('forceFull').checked;
   btn.disabled = true;
-  btn.textContent = 'Проверяю...';
-  await chrome.runtime.sendMessage({ type: 'check-now', force: false });
+  btn.textContent = force ? 'Полное обновление...' : 'Проверяю...';
+  await chrome.runtime.sendMessage({ type: 'check-now', force });
   btn.disabled = false;
   btn.textContent = 'Проверить сейчас';
   render();
