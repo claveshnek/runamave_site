@@ -91,7 +91,7 @@ export function parseListPage(html) {
     const duration = (b.match(/class="[^"]*duration[^"]*"[^>]*>([\d:]+)</) || [])[1];
     const viewsStr = (b.match(/class="views">[\s\S]*?<var>([^<]+)<\/var>/) || [])[1];
     const added = (b.match(/class="added">([^<]+)</) || [])[1];
-    out.push(normalizeStub({ vkey, title: decodeEntities(rawTitle), thumbnail: thumb, duration, views: viewsStr, added_relative: added }));
+    out.push(normalizeStub({ vkey, title: decodeEntities(rawTitle), thumbnail: decodeEntities(thumb), duration, views: viewsStr, added_relative: added }));
   }
   return out;
 }
